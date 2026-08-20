@@ -1,0 +1,7 @@
+.git/**
+.gitignore
+Makefile
+README.md
+todo.md
+docs/**
+*.vsix

@@ -3,17 +3,23 @@
 // основной кнопкой (sst-dev.opencode = «напрямую»):
 //   VPN — хост opencode через VPN-шлюз (прокси из vpn.yaml), порт 4098
 //   Dock — opencode в контейнере (своя БД/конфиг), порт 4100
-//   VPS — будущее (Франция), порт 4099 — добавляется данными, без правки кода
+//   VPS — будущее (Франция), порт 4099 — добавляется настройкой, без правки кода
 // Заголовки окон отличаются: иконка вкладки (цвет) + подпись в заголовке
 // (эмодзи + метка, задаётся OPENCODE_TITLE_NAME через opencode-titled.sh).
 //
-// Порт в ROUTES — БАЗОВЫЙ порт первой сессии маршрута (4098/4100). Каждая
+// Порт в маршруте — БАЗОВЫЙ порт первой сессии маршрута (4098/4100). Каждая
 // следующая сессия маршрута («в новой вкладке») получает СВОБОДНЫЙ порт, чтобы
 // не конфликтовать с уже работающей (иначе «второе окно ломает первое»).
 // Скрипты opencode-console-vpn.sh / opencode-console.sh подхватывают порт из
 // env OPENCODE_CONSOLE_PORT — vpn-проект править не нужно.
 // Прокси для VPN всегда берётся из config/vpn.yaml (2082) — API-порт opencode
 // к маршруту трафика отношения не имеет: каждая сессия идёт через ВПН.
+//
+// Маршруты и путь к vpn-проекту настраиваются в Settings VSCode:
+//   opencodeVpn.vpnDir   — каталог проекта vpn (пусто → DEFAULT_VPN_DIR)
+//   opencodeVpn.routes   — массив маршрутов (пусто → DEFAULT_ROUTES)
+// Плейсхолдер {vpnDir} в launch подставляется из настроек. Личные пути в коде
+// не зашиты: дефолты ниже — только на случай пустой конфигурации.
 
 const vscode = require("vscode");
 const net = require("net");
@@ -21,10 +27,13 @@ const net = require("net");
 // Внешняя зависимость: скрипты запуска живут в проекте vpn
 // (~/.config/vpn/scripts/), рядом со своим config/vpn.yaml, cfg.py,
 // docker-compose и opencode-titled.sh. Копировать их сюда нельзя — будет
-// дублирование с дрейфом. Если vpn-проект переехал — править только здесь.
-const VPN_DIR = "/path/to/launch-scripts";
+// дублирование с дрейфом. Путь настраивается через opencodeVpn.vpnDir;
+// в коде личные пути не хранятся (портабельность для публикации).
+const DEFAULT_VPN_DIR = "";
 
-const ROUTES = [
+// Встроенные дефолты — используются, когда opencodeVpn.routes пуст.
+// Плейсхолдер {vpnDir} заменяется значением opencodeVpn.vpnDir.
+const DEFAULT_ROUTES = [
   {
     id: "vpn",
     label: "VPN",
@@ -32,7 +41,7 @@ const ROUTES = [
     terminalName: "opencode (VPN)",
     titleName: "🛡 VPN",
     port: 4098,
-    launch: `cd '${VPN_DIR}' && ./scripts/opencode-console-vpn.sh`,
+    launch: "cd '{vpnDir}' && ./scripts/opencode-console-vpn.sh",
   },
   {
     id: "dock",
@@ -41,25 +50,40 @@ const ROUTES = [
     terminalName: "opencode (Dock)",
     titleName: "🐳 Dock",
     port: 4100,
-    launch: `cd '${VPN_DIR}' && ./scripts/opencode-console.sh`,
+    launch: "cd '{vpnDir}' && ./scripts/opencode-console.sh",
   },
-  // Будущий маршрут VPS (сервер во Франции): добавляется данными, код не трогаем.
-  // {
-  //   id: "vps",
-  //   label: "VPS",
-  //   icon: "button-purple.svg",
-  //   terminalName: "opencode (VPS)",
-  //   titleName: "🖥 VPS",
-  //   port: 4099,
-  //   launch: `cd '${VPN_DIR}' && ./scripts/opencode-vps.sh`,
-  // },
+  // Будущий маршрут VPS (сервер во Франции): включить настройкой
+  // opencodeVpn.routes = [..., {id:"vps", ..., port: 4099,
+  //   launch: "cd '{vpnDir}' && ./scripts/opencode-vps.sh"}]
 ];
+
+// Прочитать маршруты из настроек (opencodeVpn.routes), при пустом списке —
+// DEFAULT_ROUTES. {vpnDir} подставляется из opencodeVpn.vpnDir.
+function effectiveRoutes() {
+  const cfg = vscode.workspace.getConfiguration("opencodeVpn");
+  const vpnDir = cfg.get("vpnDir", "") || DEFAULT_VPN_DIR;
+  const configured = cfg.get("routes", []);
+  const base = Array.isArray(configured) && configured.length ? configured : DEFAULT_ROUTES;
+  if (!vpnDir && base.some((r) => String(r.launch || "").includes("{vpnDir}"))) {
+    vscode.window.showWarningMessage(
+      "opencode-vpn: настройка opencodeVpn.vpnDir не задана, " +
+      "команды запуска будут неполными. Укажите путь к проекту vpn.",
+    );
+  }
+  const routes = base.map((r) => ({
+    ...r,
+    launch: String(r.launch || "").replace(/\{vpnDir\}/g, vpnDir),
+  }));
+  return routes;
+}
 
 // Порты, уже отданные сессиям (чтобы две новые сессии не получили один и тот же).
 const usedPorts = new Set();
 
 function activate(context) {
-  for (const route of ROUTES) {
+  const routes = effectiveRoutes();
+
+  for (const route of routes) {
     context.subscriptions.push(
       vscode.commands.registerCommand(
         `opencode-vpn.${route.id}.openTerminal`,
@@ -86,7 +110,7 @@ function activate(context) {
       if (!ref) return;
       const term = vscode.window.activeTerminal;
       if (!term) return;
-      if (!isRouteTerminal(term.name)) return;
+      if (!isRouteTerminal(term.name, routes)) return;
       const env = term.creationOptions ? term.creationOptions.env : undefined;
       const port = env ? env._EXTENSION_OPENCODE_PORT : undefined;
       if (port) {
@@ -101,8 +125,8 @@ function activate(context) {
   context.subscriptions.push(addFile);
 }
 
-function isRouteTerminal(name) {
-  return ROUTES.some(
+function isRouteTerminal(name, routes) {
+  return routes.some(
     (r) => r.terminalName === name || name.startsWith(`${r.terminalName} `),
   );
 }

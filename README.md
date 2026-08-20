@@ -19,12 +19,12 @@
 
 ```
 package.json         манифест расширения (идентификатор alex.opencode-vpn)
-dist/extension.js    весь код плагина (ROUTES — маршруты данными, без правки кода)
+dist/extension.js    весь код плагина (маршруты из настроек, без правки кода)
 images/              иконки кнопок (SVG) и иконка расширения (icon.png)
 ```
 
-Маршруты задаются **данными** в `dist/extension.js` (массив `ROUTES`): id,
-цвет/иконка, подпись вкладки, порт, команда запуска.
+Маршруты задаются **настройками** в VSCode (Settings → `opencodeVpn.*`), не
+правкой кода. Пустой `opencodeVpn.routes` = встроенные дефолты (VPN, Dock).
 
 ## Внешняя зависимость: проект vpn
 
@@ -36,12 +36,13 @@ images/              иконки кнопок (SVG) и иконка расши�
 - `scripts/opencode-console.sh` — opencode в контейнере (Dock), порт 4100.
 
 Копировать скрипты сюда **нельзя**: они живут рядом со своим `config/vpn.yaml`,
-`cfg.py`, `docker-compose*.yml` и `opencode-titled.sh`. При переносе/переименовании
-vpn-проекта достаточно поправить константу `VPN_DIR` в `dist/extension.js`.
+`cfg.py`, `docker-compose*.yml` и `opencode-titled.sh`. Путь к vpn-проекту
+задаётся настройкой `opencodeVpn.vpnDir` (по умолчанию пусто → встроенный
+`~/.config/vpn`).
 
 ## Установка (копия в ~/.vscode/extensions)
 
-Установленная копия — `~/.vscode/extensions/alex.opencode-vpn-0.0.2/`.
+Установленная копия — `~/.vscode/extensions/alex.opencode-vpn-0.0.3/`.
 Обновление после правки исходника:
 
 ```bash
@@ -51,22 +52,45 @@ rsync -a --delete /path/to/opencode-fly/ \
 
 Затем в VSCode — **Developer: Reload Window**.
 
-## Настройка кнопок на панели (вручную)
+## Настройка маршрутов (Settings VSCode)
 
-Кнопки добавляются **данными** в `dist/extension.js` — массив `ROUTES`.
-Каждый элемент — один маршрут (одна кнопка). Код в `activate()` не трогаем.
+Маршруты настраиваются из **UI VSCode** (Settings → расширение opencode-vpn),
+без правки кода. После изменения настроек — **Reload Window**.
 
-```js
+Две настройки (префикс `opencodeVpn`):
+
+1. **`opencodeVpn.vpnDir`** — абсолютный путь к каталогу проекта vpn
+   (`~/.config/vpn`), где лежат скрипты запуска. Пусто → встроенный
+   `~/.config/vpn` (для публикации путь можно не указывать, если скрипты
+   рядом).
+2. **`opencodeVpn.routes`** — массив маршрутов. Каждый элемент — одна кнопка
+   (`id`, `icon`, `terminalName`, `titleName`, `port`, `launch`). Пустой массив
+   → встроенные дефолты (VPN, Dock).
+
+В команде `launch` плейсхолдер `{vpnDir}` подставляется из `opencodeVpn.vpnDir`:
+
+```json
 {
-  id: "vpn",                  // ключ команды: opencode-vpn.<id>.openTerminal
-  label: "VPN",               // не влияет на UI, для читаемости
-  icon: "button-green.svg",   // файл в images/ — цвет кнопки
-  terminalName: "opencode (VPN)",  // имя вкладки терминала
-  titleName: "🛡 VPN",        // подпись в заголовке окна (эмодзи + метка)
-  port: 4098,                 // БАЗОВЫЙ порт (первая сессия маршрута)
-  launch: `cd '${VPN_DIR}' && ./scripts/opencode-console-vpn.sh`,
-},
+  "opencodeVpn.vpnDir": "/path/to/launch-scripts",
+  "opencodeVpn.routes": [
+    {
+      "id": "vpn",
+      "label": "VPN",
+      "icon": "button-green.svg",
+      "terminalName": "opencode (VPN)",
+      "titleName": "🛡 VPN",
+      "port": 4098,
+      "launch": "cd '{vpnDir}' && ./scripts/opencode-console-vpn.sh"
+    }
+  ]
+}
 ```
+
+## Настройка кнопок на панели (вручную, для нового маршрута)
+
+Кнопки добавляются настройкой `opencodeVpn.routes` (см. выше). Чтобы добавить
+новый маршрут (например, VPS) — добавить элемент в `opencodeVpn.routes` и
+положить SVG в `images/` под именем из `icon`.
 
 Шаги для новой кнопки:
 
@@ -78,9 +102,9 @@ rsync -a --delete /path/to/opencode-fly/ \
    Меняем на нужные (примеры: зелёный `#69f0ae`/`#00c853`, синий
    `#81d4fa`/`#039be5`, фиолетовый `#e1bee7`/`#7b1fa2`, красный
    `#ef9a9a`/`#d32f2f`, жёлтый `#fff59d`/`#f9a825`).
-2. **Добавить элемент в `ROUTES`**: заполнить `id`, `icon`, `terminalName`,
-   `titleName`, `port`, `launch` (команда запуска — скрипт из vpn-проекта,
-   путь внутри кавычек, `VPN_DIR` уже определён выше).
+2. **Добавить элемент в `opencodeVpn.routes`** (Settings VSCode): заполнить
+   `id`, `icon`, `terminalName`, `titleName`, `port`, `launch` (команда запуска —
+   скрипт из vpn-проекта, путь через плейсхолдер `{vpnDir}`).
 3. **`npm`-шаг не нужен** — плагин без сборки (простой `dist/extension.js`).
 4. **Синхронизировать установленную копию**:
    ```bash
@@ -89,9 +113,9 @@ rsync -a --delete /path/to/opencode-fly/ \
    ```
 5. **Reload Window** в VSCode — кнопка появится на панели.
 
-Чтобы **убрать** кнопку — удалить элемент из `ROUTES` (SVG можно оставить).
-Порядок элементов определяет порядок кнопок на панели. Для кнопки в заголовке
-вкладки (при открытии) — не требуется отдельная настройка: команда
+Чтобы **убрать** кнопку — удалить элемент из `opencodeVpn.routes` (SVG можно
+оставить). Порядок элементов определяет порядок кнопок на панели. Для кнопки в
+заголовке вкладки (при открытии) — не требуется отдельная настройка: команда
 `opencode-vpn.<id>.openNewTerminal` уже зарегистрирована для каждого маршрута.
 
 ## Функции кода

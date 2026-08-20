@@ -2,7 +2,7 @@
 	"name": "opencode-vpn",
 	"displayName": "opencode (VPN/Dock/VPS)",
 	"description": "Кнопки запуска opencode через разные маршруты: VPN-шлюз (хост + прокси), контейнер (Dock), будущий VPS. Хостовый запуск напрямую — sst-dev.opencode.",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"publisher": "alex",
 	"license": "MIT",
 	"icon": "images/icon.png",
@@ -12,6 +12,18 @@
 	"categories": [
 		"Other"
 	],
+	"keywords": [
+		"opencode",
+		"vpn",
+		"terminal",
+		"proxy",
+		"docker",
+		"vps"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sst/opencode"
+	},
 	"activationEvents": [
 		"onCommand:opencode-vpn.vpn.openTerminal",
 		"onCommand:opencode-vpn.vpn.openNewTerminal",
@@ -21,6 +33,62 @@
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
+		"configuration": {
+			"title": "opencode-vpn",
+			"properties": {
+				"opencodeVpn.vpnDir": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Абсолютный путь к каталогу проекта vpn (`~/.config/vpn`), в котором лежат скрипты запуска opencode (`scripts/opencode-console-vpn.sh`, `scripts/opencode-console.sh`). Если пусто — используется встроенный путь по умолчанию."
+				},
+				"opencodeVpn.routes": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"description": "Ключ маршрута: формирует команды opencode-vpn.<id>.openTerminal / .openNewTerminal"
+							},
+							"label": {
+								"type": "string",
+								"description": "Читаемая метка маршрута (не влияет на UI)"
+							},
+							"icon": {
+								"type": "string",
+								"description": "Имя файла SVG в images/ (цвет кнопки)"
+							},
+							"terminalName": {
+								"type": "string",
+								"description": "Имя вкладки терминала"
+							},
+							"titleName": {
+								"type": "string",
+								"description": "Подпись в заголовке окна (эмодзи + метка)"
+							},
+							"port": {
+								"type": "number",
+								"description": "Базовый порт первой сессии маршрута"
+							},
+							"launch": {
+								"type": "string",
+								"description": "Команда запуска (скрипт из vpn-проекта); плейсхолдер {vpnDir} подставляется из opencodeVpn.vpnDir"
+							}
+						},
+						"required": [
+							"id",
+							"icon",
+							"terminalName",
+							"titleName",
+							"port",
+							"launch"
+						]
+					},
+					"default": [],
+					"markdownDescription": "Маршруты запуска opencode. Каждый элемент — одна кнопка. Пустой массив — используются встроенные дефолты (VPN, Dock, VPS). Пример:\n\n```json\n[{\"id\":\"vpn\",\"label\":\"VPN\",\"icon\":\"button-green.svg\",\"terminalName\":\"opencode (VPN)\",\"titleName\":\"🛡 VPN\",\"port\":4098,\"launch\":\"cd '{vpnDir}' && ./scripts/opencode-console-vpn.sh\"}]\n```"
+				}
+			}
+		},
 		"commands": [
 			{
 				"command": "opencode-vpn.vpn.openTerminal",
