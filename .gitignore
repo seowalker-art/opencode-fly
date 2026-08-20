@@ -1,0 +1,13 @@
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# ОС
+.DS_Store
+Thumbs.db
+
+# Артефакты упаковки
+*.vsix

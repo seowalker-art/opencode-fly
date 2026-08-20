@@ -1,0 +1,83 @@
+{
+	"name": "opencode-vpn",
+	"displayName": "opencode (VPN/Dock/VPS)",
+	"description": "Кнопки запуска opencode через разные маршруты: VPN-шлюз (хост + прокси), контейнер (Dock), будущий VPS. Хостовый запуск напрямую — sst-dev.opencode.",
+	"version": "0.0.2",
+	"publisher": "alex",
+	"license": "MIT",
+	"icon": "images/icon.png",
+	"engines": {
+		"vscode": "^1.94.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onCommand:opencode-vpn.vpn.openTerminal",
+		"onCommand:opencode-vpn.vpn.openNewTerminal",
+		"onCommand:opencode-vpn.dock.openTerminal",
+		"onCommand:opencode-vpn.dock.openNewTerminal",
+		"onCommand:opencode-vpn.addFilepathToTerminal"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "opencode-vpn.vpn.openTerminal",
+				"title": "Открыть opencode (VPN)",
+				"icon": {
+					"light": "images/button-green.svg",
+					"dark": "images/button-green.svg"
+				}
+			},
+			{
+				"command": "opencode-vpn.vpn.openNewTerminal",
+				"title": "Открыть opencode (VPN) в новой вкладке",
+				"icon": {
+					"light": "images/button-green.svg",
+					"dark": "images/button-green.svg"
+				}
+			},
+			{
+				"command": "opencode-vpn.dock.openTerminal",
+				"title": "Открыть opencode (Dock)",
+				"icon": {
+					"light": "images/button-blue.svg",
+					"dark": "images/button-blue.svg"
+				}
+			},
+			{
+				"command": "opencode-vpn.dock.openNewTerminal",
+				"title": "Открыть opencode (Dock) в новой вкладке",
+				"icon": {
+					"light": "images/button-blue.svg",
+					"dark": "images/button-blue.svg"
+				}
+			},
+			{
+				"command": "opencode-vpn.addFilepathToTerminal",
+				"title": "opencode (маршруты): добавить путь файла в терминал"
+			}
+		],
+		"menus": {
+			"editor/title": [
+				{
+					"command": "opencode-vpn.vpn.openNewTerminal",
+					"group": "navigation"
+				},
+				{
+					"command": "opencode-vpn.dock.openNewTerminal",
+					"group": "navigation"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "opencode-vpn.vpn.openTerminal",
+				"title": "Открыть opencode (VPN)",
+				"key": "ctrl+alt+shift+o",
+				"mac": "cmd+alt+shift+o"
+			}
+		]
+	}
+}
