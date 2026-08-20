@@ -6,8 +6,17 @@
 //   VPS — будущее (Франция), порт 4099 — добавляется данными, без правки кода
 // Заголовки окон отличаются: иконка вкладки (цвет) + подпись в заголовке
 // (эмодзи + метка, задаётся OPENCODE_TITLE_NAME через opencode-titled.sh).
+//
+// Порт в ROUTES — БАЗОВЫЙ порт первой сессии маршрута (4098/4100). Каждая
+// следующая сессия маршрута («в новой вкладке») получает СВОБОДНЫЙ порт, чтобы
+// не конфликтовать с уже работающей (иначе «второе окно ломает первое»).
+// Скрипты opencode-console-vpn.sh / opencode-console.sh подхватывают порт из
+// env OPENCODE_CONSOLE_PORT — vpn-проект править не нужно.
+// Прокси для VPN всегда берётся из config/vpn.yaml (2082) — API-порт opencode
+// к маршруту трафика отношения не имеет: каждая сессия идёт через ВПН.
 
 const vscode = require("vscode");
+const net = require("net");
 
 // Внешняя зависимость: скрипты запуска живут в проекте vpn
 // (~/.config/vpn/scripts/), рядом со своим config/vpn.yaml, cfg.py,
@@ -46,6 +55,9 @@ const ROUTES = [
   // },
 ];
 
+// Порты, уже отданные сессиям (чтобы две новые сессии не получили один и тот же).
+const usedPorts = new Set();
+
 function activate(context) {
   for (const route of ROUTES) {
     context.subscriptions.push(
@@ -60,6 +72,13 @@ function activate(context) {
     );
   }
 
+  // Освобождаем порт при закрытии терминала маршрута.
+  vscode.window.onDidCloseTerminal((term) => {
+    const env = term.creationOptions ? term.creationOptions.env : undefined;
+    const port = env ? env._EXTENSION_OPENCODE_PORT : undefined;
+    if (port) usedPorts.delete(parseInt(port, 10));
+  }, null, context.subscriptions);
+
   const addFile = vscode.commands.registerCommand(
     "opencode-vpn.addFilepathToTerminal",
     async () => {
@@ -67,7 +86,7 @@ function activate(context) {
       if (!ref) return;
       const term = vscode.window.activeTerminal;
       if (!term) return;
-      if (!ROUTES.some((r) => r.terminalName === term.name)) return;
+      if (!isRouteTerminal(term.name)) return;
       const env = term.creationOptions ? term.creationOptions.env : undefined;
       const port = env ? env._EXTENSION_OPENCODE_PORT : undefined;
       if (port) {
@@ -82,6 +101,12 @@ function activate(context) {
   context.subscriptions.push(addFile);
 }
 
+function isRouteTerminal(name) {
+  return ROUTES.some(
+    (r) => r.terminalName === name || name.startsWith(`${r.terminalName} `),
+  );
+}
+
 async function openConsole(context, route, forceNew) {
   const existing = vscode.window.terminals.find((t) => t.name === route.terminalName);
   if (existing && !forceNew) {
@@ -92,6 +117,8 @@ async function openConsole(context, route, forceNew) {
     existing.dispose();
   }
 
+  const port = await allocPort(route, forceNew);
+
   const iconPath = {
     light: vscode.Uri.file(context.asAbsolutePath(`images/${route.icon}`)),
     dark: vscode.Uri.file(context.asAbsolutePath(`images/${route.icon}`)),
@@ -101,14 +128,15 @@ async function openConsole(context, route, forceNew) {
     iconPath,
     location: { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
     env: {
-      _EXTENSION_OPENCODE_PORT: String(route.port),
+      _EXTENSION_OPENCODE_PORT: String(port),
       OPENCODE_CALLER: "vscode",
-      OPENCODE_CONSOLE_PORT: String(route.port),
+      OPENCODE_CONSOLE_PORT: String(port),
       OPENCODE_TITLE_NAME: route.titleName,
       OPENCODE_TITLE: "0",
       OPENCODE_TITLE_SOUND: process.env.OPENCODE_TITLE_SOUND || "1",
     },
   });
+  usedPorts.add(port);
   term.show();
   term.sendText(route.launch);
 
@@ -119,14 +147,40 @@ async function openConsole(context, route, forceNew) {
   for (let i = 0; i < 60; i++) {
     await new Promise((r) => setTimeout(r, 500));
     try {
-      const res = await fetch(`http://localhost:${route.port}/app`);
+      const res = await fetch(`http://localhost:${port}/app`);
       if (res.ok) { ok = true; break; }
     } catch {}
   }
   if (ok) {
-    await appendPrompt(route.port, `In ${ref}`);
+    await appendPrompt(port, `In ${ref}`);
     term.show();
   }
+}
+
+// Выделить порт для новой сессии. Первая сессия маршрута — базовый порт
+// (ROUTES[].port); если он уже занят живой сессией — новый свободный.
+async function allocPort(route, forceNew) {
+  if (!forceNew || !(await canBind(route.port))) return route.port;
+  for (let i = 0; i < 50; i++) {
+    const p = Math.floor(Math.random() * 49152) + 16384;
+    if (usedPorts.has(p)) continue;
+    if (await canBind(p)) return p;
+  }
+  return route.port;
+}
+
+// Порт свободен, если на 127.0.0.1:port никто не слушает (и он ещё не отдан
+// сессии этого процесса). Опираемся на реальный bind, а не на GET /app, чтобы
+// не «съесть» порт, занятый посторонним процессом.
+function canBind(port) {
+  if (usedPorts.has(port)) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once("error", () => resolve(false));
+    srv.listen(port, "127.0.0.1", () => {
+      srv.close(() => resolve(true));
+    });
+  });
 }
 
 async function portAlive(port) {
