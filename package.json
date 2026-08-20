@@ -1,9 +1,13 @@
 {
-	"name": "opencode-vpn",
-	"displayName": "opencode (VPN/Dock/VPS)",
+	"name": "opencode-fly",
+	"displayName": "opencode-fly (VPN/Dock/VPS)",
 	"description": "Кнопки запуска opencode через разные маршруты: VPN-шлюз (хост + прокси), контейнер (Dock), будущий VPS. Хостовый запуск напрямую — sst-dev.opencode.",
-	"version": "0.0.3",
-	"publisher": "alex",
+	"version": "0.0.4",
+	"publisher": "Alex",
+	"author": {
+		"name": "Alex_om",
+		"url": "https://t.me/Alex_om"
+	},
 	"license": "MIT",
 	"icon": "images/icon.png",
 	"engines": {
@@ -25,21 +29,31 @@
 		"url": "https://github.com/sst/opencode"
 	},
 	"activationEvents": [
-		"onCommand:opencode-vpn.vpn.openTerminal",
-		"onCommand:opencode-vpn.vpn.openNewTerminal",
-		"onCommand:opencode-vpn.dock.openTerminal",
-		"onCommand:opencode-vpn.dock.openNewTerminal",
-		"onCommand:opencode-vpn.addFilepathToTerminal"
+		"onCommand:opencode-fly.vpn.openTerminal",
+		"onCommand:opencode-fly.vpn.openNewTerminal",
+		"onCommand:opencode-fly.dock.openTerminal",
+		"onCommand:opencode-fly.dock.openNewTerminal",
+		"onCommand:opencode-fly.addFilepathToTerminal"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
 		"configuration": {
-			"title": "opencode-vpn",
+			"title": "opencode-fly",
 			"properties": {
 				"opencodeVpn.vpnDir": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "Абсолютный путь к каталогу проекта vpn (`~/.config/vpn`), в котором лежат скрипты запуска opencode (`scripts/opencode-console-vpn.sh`, `scripts/opencode-console.sh`). Если пусто — используется встроенный путь по умолчанию."
+					"markdownDescription": "Абсолютный путь к каталогу проекта vpn (`~/.config/vpn`), в котором лежат скрипты запуска opencode (`scripts/opencode-console-vpn.sh`, `scripts/opencode-console.sh`). Если пусто или каталог недоступен — VPN-маршрут запускает opencode во встроенном режиме с прокси из `opencodeVpn.proxyHost` / `opencodeVpn.proxyPort`."
+				},
+				"opencodeVpn.proxyHost": {
+					"type": "string",
+					"default": "127.0.0.1",
+					"description": "Хост VPN-прокси для встроенного режима запуска (когда opencodeVpn.vpnDir не задан)."
+				},
+				"opencodeVpn.proxyPort": {
+					"type": "string",
+					"default": "2082",
+					"description": "Порт VPN-прокси для встроенного режима запуска (когда opencodeVpn.vpnDir не задан)."
 				},
 				"opencodeVpn.routes": {
 					"type": "array",
@@ -48,7 +62,7 @@
 						"properties": {
 							"id": {
 								"type": "string",
-								"description": "Ключ маршрута: формирует команды opencode-vpn.<id>.openTerminal / .openNewTerminal"
+								"description": "Ключ маршрута: формирует команды opencode-fly.<id>.openTerminal / .openNewTerminal"
 							},
 							"label": {
 								"type": "string",
@@ -91,7 +105,7 @@
 		},
 		"commands": [
 			{
-				"command": "opencode-vpn.vpn.openTerminal",
+				"command": "opencode-fly.vpn.openTerminal",
 				"title": "Открыть opencode (VPN)",
 				"icon": {
 					"light": "images/button-green.svg",
@@ -99,7 +113,7 @@
 				}
 			},
 			{
-				"command": "opencode-vpn.vpn.openNewTerminal",
+				"command": "opencode-fly.vpn.openNewTerminal",
 				"title": "Открыть opencode (VPN) в новой вкладке",
 				"icon": {
 					"light": "images/button-green.svg",
@@ -107,7 +121,7 @@
 				}
 			},
 			{
-				"command": "opencode-vpn.dock.openTerminal",
+				"command": "opencode-fly.dock.openTerminal",
 				"title": "Открыть opencode (Dock)",
 				"icon": {
 					"light": "images/button-blue.svg",
@@ -115,7 +129,7 @@
 				}
 			},
 			{
-				"command": "opencode-vpn.dock.openNewTerminal",
+				"command": "opencode-fly.dock.openNewTerminal",
 				"title": "Открыть opencode (Dock) в новой вкладке",
 				"icon": {
 					"light": "images/button-blue.svg",
@@ -123,25 +137,25 @@
 				}
 			},
 			{
-				"command": "opencode-vpn.addFilepathToTerminal",
+				"command": "opencode-fly.addFilepathToTerminal",
 				"title": "opencode (маршруты): добавить путь файла в терминал"
 			}
 		],
 		"menus": {
 			"editor/title": [
 				{
-					"command": "opencode-vpn.vpn.openNewTerminal",
+					"command": "opencode-fly.vpn.openNewTerminal",
 					"group": "navigation"
 				},
 				{
-					"command": "opencode-vpn.dock.openNewTerminal",
+					"command": "opencode-fly.dock.openNewTerminal",
 					"group": "navigation"
 				}
 			]
 		},
 		"keybindings": [
 			{
-				"command": "opencode-vpn.vpn.openTerminal",
+				"command": "opencode-fly.vpn.openTerminal",
 				"title": "Открыть opencode (VPN)",
 				"key": "ctrl+alt+shift+o",
 				"mac": "cmd+alt+shift+o"

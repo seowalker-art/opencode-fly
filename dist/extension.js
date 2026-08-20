@@ -1,6 +1,6 @@
 "use strict";
-// alex.opencode-vpn — кнопки запуска opencode через разные маршруты рядом с
-// основной кнопкой (sst-dev.opencode = «напрямую»):
+// Alex.opencode-fly (автор @Alex_om) — кнопки запуска opencode через разные
+// маршруты рядом с основной кнопкой (sst-dev.opencode = «напрямую»):
 //   VPN — хост opencode через VPN-шлюз (прокси из vpn.yaml), порт 4098
 //   Dock — opencode в контейнере (своя БД/конфиг), порт 4100
 //   VPS — будущее (Франция), порт 4099 — добавляется настройкой, без правки кода
@@ -29,10 +29,17 @@ const net = require("net");
 // docker-compose и opencode-titled.sh. Копировать их сюда нельзя — будет
 // дублирование с дрейфом. Путь настраивается через opencodeVpn.vpnDir;
 // в коде личные пути не хранятся (портабельность для публикации).
+//
+// Самодостаточность: если opencodeVpn.vpnDir задан и существует — маршрут
+// VPN идёт через скрипты vpn-проекта (наши значения). Если vpnDir пуст или
+// недоступен — встроенный запуск opencode с прокси из opencodeVpn.proxy.*
+// (по умолчанию 127.0.0.1:2082). Так плагин работает с ЛЮБЫМ VPN.
 const DEFAULT_VPN_DIR = "";
+const DEFAULT_PROXY_HOST = "127.0.0.1";
+const DEFAULT_PROXY_PORT = "2082";
 
 // Встроенные дефолты — используются, когда opencodeVpn.routes пуст.
-// Плейсхолдер {vpnDir} заменяется значением opencodeVpn.vpnDir.
+// Плейсхолдеры {vpnDir}, {proxyHost}, {proxyPort} заменяются из настроек.
 const DEFAULT_ROUTES = [
   {
     id: "vpn",
@@ -41,7 +48,11 @@ const DEFAULT_ROUTES = [
     terminalName: "opencode (VPN)",
     titleName: "🛡 VPN",
     port: 4098,
-    launch: "cd '{vpnDir}' && ./scripts/opencode-console-vpn.sh",
+    launch:
+      "if [ -d '{vpnDir}' ]; then cd '{vpnDir}' && ./scripts/opencode-console-vpn.sh; " +
+      "else export HTTP_PROXY=http://{proxyHost}:{proxyPort}; " +
+      "export HTTPS_PROXY=$HTTP_PROXY; export ALL_PROXY=socks5h://{proxyHost}:{proxyPort}; " +
+      "export NO_PROXY=localhost,127.0.0.1; exec opencode --port \"$OPENCODE_CONSOLE_PORT\"; fi",
   },
   {
     id: "dock",
@@ -58,21 +69,26 @@ const DEFAULT_ROUTES = [
 ];
 
 // Прочитать маршруты из настроек (opencodeVpn.routes), при пустом списке —
-// DEFAULT_ROUTES. {vpnDir} подставляется из opencodeVpn.vpnDir.
+// DEFAULT_ROUTES. Плейсхолдеры подставляются из opencodeVpn.*.
 function effectiveRoutes() {
   const cfg = vscode.workspace.getConfiguration("opencodeVpn");
   const vpnDir = cfg.get("vpnDir", "") || DEFAULT_VPN_DIR;
+  const proxyHost = cfg.get("proxyHost", "") || DEFAULT_PROXY_HOST;
+  const proxyPort = cfg.get("proxyPort", "") || DEFAULT_PROXY_PORT;
   const configured = cfg.get("routes", []);
   const base = Array.isArray(configured) && configured.length ? configured : DEFAULT_ROUTES;
   if (!vpnDir && base.some((r) => String(r.launch || "").includes("{vpnDir}"))) {
     vscode.window.showWarningMessage(
-      "opencode-vpn: настройка opencodeVpn.vpnDir не задана, " +
-      "команды запуска будут неполными. Укажите путь к проекту vpn.",
+      "opencode-fly: настройка opencodeVpn.vpnDir не задана, " +
+      "VPN-маршрут работает во встроенном режиме с прокси из настроек.",
     );
   }
   const routes = base.map((r) => ({
     ...r,
-    launch: String(r.launch || "").replace(/\{vpnDir\}/g, vpnDir),
+    launch: String(r.launch || "")
+      .replace(/\{vpnDir\}/g, vpnDir)
+      .replace(/\{proxyHost\}/g, proxyHost)
+      .replace(/\{proxyPort\}/g, proxyPort),
   }));
   return routes;
 }
@@ -86,11 +102,11 @@ function activate(context) {
   for (const route of routes) {
     context.subscriptions.push(
       vscode.commands.registerCommand(
-        `opencode-vpn.${route.id}.openTerminal`,
+        `opencode-fly.${route.id}.openTerminal`,
         () => openConsole(context, route, false),
       ),
       vscode.commands.registerCommand(
-        `opencode-vpn.${route.id}.openNewTerminal`,
+        `opencode-fly.${route.id}.openNewTerminal`,
         () => openConsole(context, route, true),
       ),
     );
@@ -104,7 +120,7 @@ function activate(context) {
   }, null, context.subscriptions);
 
   const addFile = vscode.commands.registerCommand(
-    "opencode-vpn.addFilepathToTerminal",
+    "opencode-fly.addFilepathToTerminal",
     async () => {
       const ref = currentFileRef();
       if (!ref) return;

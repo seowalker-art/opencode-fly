@@ -1,4 +1,4 @@
-# Makefile проекта VSCode-плагина opencode-vpn.
+# Makefile проекта VSCode-плагина opencode-fly.
 # Плагин — самостоятельный проект; vpn-проект (~/.config/vpn) — внешняя
 # зависимость (скрипты запуска живут там).
 # Цели с префиксом plugin_vscode-opencode_vpn- — для вызова через диспетчер
@@ -6,14 +6,14 @@
 
 SHELL := /bin/bash
 SRC := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-EXT := $(HOME)/.vscode/extensions/alex.opencode-vpn-0.0.3
-VSIX := opencode-vpn-0.0.3.vsix
+EXT := $(HOME)/.vscode/extensions/Alex.opencode-fly-0.0.4
+VSIX := opencode-fly-0.0.4.vsix
 
 .DEFAULT_GOAL := help
 
 ## help: список команд проекта
 help:
-	@echo "Проект VSCode-плагина alex.opencode-vpn."
+	@echo "Проект VSCode-плагина Alex_om.opencode-fly."
 	@echo ""
 	@echo "  make install    синхронизировать установленную копию (~/.vscode/extensions)"
 	@echo "  make check      node --check (валидность extension.js)"
@@ -32,7 +32,7 @@ plugin_vscode-opencode_vpn-install:
 		--exclude='.git' --exclude='.gitignore' --exclude='.vscodeignore' \
 		--exclude='.vsixmanifest' --exclude='readme.md' --exclude='LICENSE.txt' \
 		--exclude='Makefile' --exclude='README.md' --exclude='MARKETPLACE.md' \
-		--exclude='todo.md' --exclude='*.vsix' --exclude='LICENSE' \
+		--exclude='todo.md' --exclude='*.vsix' --exclude='LICENSE' --exclude='docs' \
 		"$(SRC)/" "$(EXT)/"
 	@echo "→ установленная копия обновлена: $(EXT)"
 
@@ -46,19 +46,20 @@ status: plugin_vscode-opencode_vpn-status
 
 ## plugin_vscode-opencode_vpn-status: diff исходник vs установленная копия
 plugin_vscode-opencode_vpn-status:
-	@if diff -rq --exclude=.git --exclude=.gitignore --exclude=.vscodeignore \
+	@PY_PKG=$$(python3 -c "import json; a=json.load(open('$(SRC)/package.json')); a.pop('__metadata',None); b=json.load(open('$(EXT)/package.json')); b.pop('__metadata',None); print('OK' if a==b else 'DIFF')" 2>/dev/null); \
+	if diff -rq --exclude=.git --exclude=.gitignore --exclude=.vscodeignore \
 		--exclude=.vsixmanifest --exclude=readme.md --exclude=LICENSE.txt \
 		--exclude=Makefile --exclude=README.md --exclude=MARKETPLACE.md \
-		--exclude=todo.md --exclude='*.vsix' --exclude=LICENSE "$(SRC)" "$(EXT)" >/dev/null 2>&1 \
-		&& diff <(grep -v __metadata "$(SRC)/package.json") <(grep -v __metadata "$(EXT)/package.json") >/dev/null 2>&1; then \
+		--exclude=todo.md --exclude='*.vsix' --exclude=LICENSE --exclude=docs "$(SRC)" "$(EXT)" >/dev/null 2>&1 \
+		&& [ "$$PY_PKG" = "OK" ]; then \
 		echo "✓ копии идентичны (package.json, dist/, images/)"; \
 	else \
 		echo "⚠ копии отличаются (исходник vs $(EXT)):"; \
 		diff -rq --exclude=.git --exclude=.gitignore --exclude=.vscodeignore \
 			--exclude=.vsixmanifest --exclude=readme.md --exclude=LICENSE.txt \
 			--exclude=Makefile --exclude=README.md --exclude=MARKETPLACE.md \
-			--exclude=todo.md --exclude='*.vsix' --exclude=LICENSE "$(SRC)" "$(EXT)"; \
-		diff <(grep -v __metadata "$(SRC)/package.json") <(grep -v __metadata "$(EXT)/package.json") || true; \
+			--exclude=todo.md --exclude='*.vsix' --exclude=LICENSE --exclude=docs "$(SRC)" "$(EXT)"; \
+		[ "$$PY_PKG" = "OK" ] || echo "package.json: отличается только __metadata (VSCode) или реальная разница — проверь"; \
 	fi
 
 reload: plugin_vscode-opencode_vpn-reload

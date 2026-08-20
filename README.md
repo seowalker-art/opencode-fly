@@ -1,4 +1,4 @@
-# plugin_vscode-opencode_vpn — VSCode-плагин маршрутов opencode
+# opencode-fly — VSCode-плагин маршрутов opencode
 
 Кнопки запуска opencode рядом с основной чёрной кнопкой (`sst-dev.opencode`
 = «напрямую»):
@@ -18,7 +18,7 @@
 ## Структура
 
 ```
-package.json         манифест расширения (идентификатор alex.opencode-vpn)
+package.json         манифест расширения (идентификатор Alex.opencode-fly)
 dist/extension.js    весь код плагина (маршруты из настроек, без правки кода)
 images/              иконки кнопок (SVG) и иконка расширения (icon.png)
 ```
@@ -40,21 +40,55 @@ images/              иконки кнопок (SVG) и иконка расши�
 задаётся настройкой `opencodeVpn.vpnDir` (по умолчанию пусто → встроенный
 `~/.config/vpn`).
 
+## VPN: порт и exit-IP — динамические (отдаёт скрипт)
+
+В расширении **нет** жёстко зашитых порта VPN-прокси и IP-адреса. Их на каждом
+запуске отдаёт скрипт из vpn-проекта, читая свой `config/vpn.yaml`:
+
+- **Порт прокси** — по умолчанию `2082` (локальный VPN-шлюз на хосте).
+- **Exit-IP** — публичный IP, с которого уходит трафик маршрута
+  (например `203.0.113.0`); берётся из конфига vpn и перепроверяется его
+  утилитами.
+
+Почему нет полей `port`/`ip` в настройках расширения: прокси принадлежит
+vpn-проекту, а не этому плагину. Зашить его сюда — продублировать источник
+правды и поймать дрейф при смене конфига. Плагину нужен только **API-порт
+opencode** сессии (`port` маршрута, 4098/4100) — по нему окна общаются со
+своим экземпляром opencode. Прокси-порт и exit-IP подставляет скрипт, поэтому
+плагин работает с **любым VPN** (Quatro, WireGuard, коммерческий, корпоративный):
+укажи `vpnDir` на проект, чьи скрипты экспортируют `HTTP_PROXY`/`HTTPS_PROXY`/
+`ALL_PROXY` и стартуют opencode на `OPENCODE_CONSOLE_PORT`.
+
+Посмотреть текущие значения:
+
+```bash
+cd ~/.config/vpn
+./scripts/cfg.py config/vpn.yaml opencode.proxy.port   # → 2082
+./scripts/vpn-toggle.sh status                          # → exit-IP каждого порта
+```
+
+## Код (один файл)
+
+Вся логика — в одном файле [`dist/extension.js`](dist/extension.js): маршруты
+читаются из настроек (`opencodeVpn.routes`), `{vpnDir}` подставляется из
+`opencodeVpn.vpnDir`, порты выделяются динамически и освобождаются при
+закрытии терминала. Манифест — [`package.json`](package.json).
+
 ## Установка (копия в ~/.vscode/extensions)
 
-Установленная копия — `~/.vscode/extensions/alex.opencode-vpn-0.0.3/`.
+Установленная копия — `~/.vscode/extensions/Alex.opencode-fly-0.0.4/`.
 Обновление после правки исходника:
 
 ```bash
 rsync -a --delete /path/to/opencode-fly/ \
-  ~/.vscode/extensions/alex.opencode-vpn-0.0.2/
+  ~/.vscode/extensions/Alex.opencode-fly-0.0.4/
 ```
 
 Затем в VSCode — **Developer: Reload Window**.
 
 ## Настройка маршрутов (Settings VSCode)
 
-Маршруты настраиваются из **UI VSCode** (Settings → расширение opencode-vpn),
+Маршруты настраиваются из **UI VSCode** (Settings → расширение opencode-fly),
 без правки кода. После изменения настроек — **Reload Window**.
 
 Две настройки (префикс `opencodeVpn`):
@@ -66,6 +100,9 @@ rsync -a --delete /path/to/opencode-fly/ \
 2. **`opencodeVpn.routes`** — массив маршрутов. Каждый элемент — одна кнопка
    (`id`, `icon`, `terminalName`, `titleName`, `port`, `launch`). Пустой массив
    → встроенные дефолты (VPN, Dock).
+3. **`opencodeVpn.proxyHost` / `opencodeVpn.proxyPort`** — хост и порт
+   VPN-прокси для **встроенного режима** (по умолчанию `127.0.0.1:2082`).
+   Используются, когда `vpnDir` не задан или недоступен.
 
 В команде `launch` плейсхолдер `{vpnDir}` подставляется из `opencodeVpn.vpnDir`:
 
@@ -116,7 +153,7 @@ rsync -a --delete /path/to/opencode-fly/ \
 Чтобы **убрать** кнопку — удалить элемент из `opencodeVpn.routes` (SVG можно
 оставить). Порядок элементов определяет порядок кнопок на панели. Для кнопки в
 заголовке вкладки (при открытии) — не требуется отдельная настройка: команда
-`opencode-vpn.<id>.openNewTerminal` уже зарегистрирована для каждого маршрута.
+`opencode-fly.<id>.openNewTerminal` уже зарегистрирована для каждого маршрута.
 
 ## Функции кода
 
@@ -130,7 +167,7 @@ rsync -a --delete /path/to/opencode-fly/ \
   передаётся скриптам через `OPENCODE_CONSOLE_PORT` — vpn-проект не правится.
   Прокси для VPN всегда из `config/vpn.yaml` (2082) — API-порт opencode к
   маршруту трафика отношения не имеет, каждая сессия идёт через ВПН.
-- **Прикрепление файла**: команда `opencode-vpn.addFilepathToTerminal`
+- **Прикрепление файла**: команда `opencode-fly.addFilepathToTerminal`
   (`@файл`, с выделением `#L…` / `#L…-…`) — в терминал маршрута через
   `/tui/append-prompt`, либо текстом, если порт неизвестен.
 - Окна различаются: цвет иконки вкладки + подпись в заголовке
@@ -148,3 +185,7 @@ rsync -a --delete /path/to/opencode-fly/ \
 
 Вынесено 20.08.2026 из `~/.config/vpn/vscode-plugin/` в отдельный
 проект (задача ТЗ_2026-08-20_02). В vpn-проекте осталась ссылка.
+
+## Автор
+
+[@Alex_om](https://t.me/Alex_om)
