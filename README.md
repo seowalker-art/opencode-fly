@@ -76,12 +76,12 @@ cd ~/.config/vpn
 
 ## Установка (копия в ~/.vscode/extensions)
 
-Установленная копия — `~/.vscode/extensions/Alex.opencode-fly-0.0.4/`.
+Установленная копия — `~/.vscode/extensions/Alex.opencode-fly-0.0.5/`.
 Обновление после правки исходника:
 
 ```bash
 rsync -a --delete /path/to/opencode-fly/ \
-  ~/.vscode/extensions/Alex.opencode-fly-0.0.4/
+  ~/.vscode/extensions/Alex.opencode-fly-0.0.5/
 ```
 
 Затем в VSCode — **Developer: Reload Window**.

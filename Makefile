@@ -6,8 +6,8 @@
 
 SHELL := /bin/bash
 SRC := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-EXT := $(HOME)/.vscode/extensions/Alex.opencode-fly-0.0.4
-VSIX := opencode-fly-0.0.4.vsix
+EXT := $(HOME)/.vscode/extensions/Alex.opencode-fly-0.0.5
+VSIX := opencode-fly-0.0.5.vsix
 
 .DEFAULT_GOAL := help
 
