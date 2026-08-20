@@ -2,7 +2,7 @@
 	"name": "opencode-fly",
 	"displayName": "opencode-fly (VPN/Dock/VPS)",
 	"description": "Кнопки запуска opencode через разные маршруты: VPN-шлюз (хост + прокси), контейнер (Dock), будущий VPS. Хостовый запуск напрямую — sst-dev.opencode.",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"publisher": "Alex",
 	"author": {
 		"name": "Alex_om",

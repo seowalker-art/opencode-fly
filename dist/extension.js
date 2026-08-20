@@ -159,18 +159,33 @@ async function openConsole(context, route, forceNew) {
 
   const port = await allocPort(route, forceNew);
 
+  // Рабочий каталог — проект, открытый в редакторе (первая папка воркспейса),
+  // а не хардкод. Скрипты запуска используют OPENCODE_WORKDIR с фолбэком на
+  // свой config/vpn.yaml, если папка не открыта.
+  const wf = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+  const workdir = wf ? wf.uri.fsPath : "";
+
   const iconPath = {
     light: vscode.Uri.file(context.asAbsolutePath(`images/${route.icon}`)),
     dark: vscode.Uri.file(context.asAbsolutePath(`images/${route.icon}`)),
   };
+  // Команду запускаем через bash -c (shellArgs), а не term.sendText: так она
+  // не «печатается» в терминале на глазах у пользователя. Скрипты всё равно
+  // exec-ят opencode (TUI), поэтому интерактивный shell не нужен.
   const term = vscode.window.createTerminal({
     name: route.terminalName,
     iconPath,
     location: { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
+    shellPath: "/bin/bash",
+    // bash -c (не sendText) — команда не «печатается» на глазах. Сначала
+    // подгружаем .bashrc: в интерактивной оболочке он читается автоматически,
+    // а здесь PATH из него (напр. ~/.opencode/bin) нужен для запуска opencode.
+    shellArgs: ["-c", `source "$HOME/.bashrc" 2>/dev/null; ${route.launch}`],
     env: {
       _EXTENSION_OPENCODE_PORT: String(port),
       OPENCODE_CALLER: "vscode",
       OPENCODE_CONSOLE_PORT: String(port),
+      OPENCODE_WORKDIR: workdir,
       OPENCODE_TITLE_NAME: route.titleName,
       OPENCODE_TITLE: "0",
       OPENCODE_TITLE_SOUND: process.env.OPENCODE_TITLE_SOUND || "1",
@@ -178,7 +193,6 @@ async function openConsole(context, route, forceNew) {
   });
   usedPorts.add(port);
   term.show();
-  term.sendText(route.launch);
 
   const ref = currentFileRef();
   if (!ref) return;

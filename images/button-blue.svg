@@ -1,6 +1,6 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
 <rect width="512" height="512" fill="#FDFCFC"/>
-<line x1="0" y1="349" x2="512" y2="163" stroke="#808080" stroke-width="12" stroke-linecap="butt"/>
+<line x1="0" y1="349" x2="512" y2="163" stroke="#808080" stroke-width="60" stroke-linecap="butt"/>
 
 <path d="M320 224V352H192V224H320Z" fill="#81d4fa"/>
 <path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="#039be5"/>
