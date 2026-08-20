@@ -1,6 +1,6 @@
 {
 	"name": "opencode-fly",
-	"displayName": "opencode-fly (VPN/Dock/VPS)",
+	"displayName": "opencode-fly",
 	"description": "Кнопки запуска opencode через разные маршруты: VPN-шлюз (хост + прокси), контейнер (Dock), будущий VPS. Хостовый запуск напрямую — sst-dev.opencode.",
 	"version": "0.0.6",
 	"publisher": "Alex",
@@ -26,7 +26,7 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/sst/opencode"
+		"url": "https://github.com/seowalker-art/opencode-fly"
 	},
 	"activationEvents": [
 		"onCommand:opencode-fly.vpn.openTerminal",
@@ -43,7 +43,7 @@
 				"opencodeVpn.vpnDir": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "Абсолютный путь к каталогу проекта vpn (`~/.config/vpn`), в котором лежат скрипты запуска opencode (`scripts/opencode-console-vpn.sh`, `scripts/opencode-console.sh`). Если пусто или каталог недоступен — VPN-маршрут запускает opencode во встроенном режиме с прокси из `opencodeVpn.proxyHost` / `opencodeVpn.proxyPort`."
+					"markdownDescription": "Абсолютный путь к каталогу с внешними скриптами запуска opencode (`scripts/opencode-console-vpn.sh`, `scripts/opencode-console.sh`). Если пусто или каталог недоступен — маршруты запускают opencode во встроенном режиме: VPN с прокси из `opencodeVpn.proxyHost` / `opencodeVpn.proxyPort`, Dock — напрямую на хосте."
 				},
 				"opencodeVpn.proxyHost": {
 					"type": "string",

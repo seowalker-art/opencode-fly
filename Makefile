@@ -1,8 +1,7 @@
 # Makefile проекта VSCode-плагина opencode-fly.
-# Плагин — самостоятельный проект; vpn-проект (~/.config/vpn) — внешняя
-# зависимость (скрипты запуска живут там).
-# Цели с префиксом plugin_vscode-opencode_vpn- — для вызова через диспетчер
-# ~/.config (`make plugin_vscode-opencode_vpn-<цель>`).
+# Плагин самодостаточен (встроенный запуск opencode); внешние скрипты —
+# опционально, подключаются настройкой opencodeVpn.vpnDir.
+# Установленная копия — ~/.vscode/extensions/ (EXT ниже).
 
 SHELL := /bin/bash
 SRC := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
@@ -21,7 +20,6 @@ help:
 	@echo "  make package    собрать .vsix (в песочнице, node 20)"
 	@echo "  make reload     подсказка: Reload Window в VSCode"
 	@echo ""
-	@echo "Через диспетчер ~/.config: make plugin_vscode-opencode_vpn-<цель>"
 
 install: plugin_vscode-opencode_vpn-install
 

@@ -1,45 +1,41 @@
 "use strict";
-// Alex.opencode-fly (автор @Alex_om) — кнопки запуска opencode через разные
-// маршруты рядом с основной кнопкой (sst-dev.opencode = «напрямую»):
-//   VPN — хост opencode через VPN-шлюз (прокси из vpn.yaml), порт 4098
-//   Dock — opencode в контейнере (своя БД/конфиг), порт 4100
-//   VPS — будущее (Франция), порт 4099 — добавляется настройкой, без правки кода
-// Заголовки окон отличаются: иконка вкладки (цвет) + подпись в заголовке
-// (эмодзи + метка, задаётся OPENCODE_TITLE_NAME через opencode-titled.sh).
+// Alex.opencode-fly — кнопки запуска opencode через разные маршруты рядом с
+// основной кнопкой (sst-dev.opencode = «напрямую»):
+//   VPN — opencode через прокси (встроенный режим) или через внешний скрипт
+//   Dock — opencode в контейнере (внешний скрипт) или напрямую на хосте
+//   VPS — будущее, добавляется настройкой, без правки кода
+// Заголовки окон отличаются: иконка вкладки (цвет) + подпись в заголовке.
 //
 // Порт в маршруте — БАЗОВЫЙ порт первой сессии маршрута (4098/4100). Каждая
 // следующая сессия маршрута («в новой вкладке») получает СВОБОДНЫЙ порт, чтобы
 // не конфликтовать с уже работающей (иначе «второе окно ломает первое»).
-// Скрипты opencode-console-vpn.sh / opencode-console.sh подхватывают порт из
-// env OPENCODE_CONSOLE_PORT — vpn-проект править не нужно.
-// Прокси для VPN всегда берётся из config/vpn.yaml (2082) — API-порт opencode
-// к маршруту трафика отношения не имеет: каждая сессия идёт через ВПН.
+// Внешние скрипты подхватывают порт из env OPENCODE_CONSOLE_PORT.
 //
-// Маршруты и путь к vpn-проекту настраиваются в Settings VSCode:
-//   opencodeVpn.vpnDir   — каталог проекта vpn (пусто → DEFAULT_VPN_DIR)
-//   opencodeVpn.routes   — массив маршрутов (пусто → DEFAULT_ROUTES)
-// Плейсхолдер {vpnDir} в launch подставляется из настроек. Личные пути в коде
-// не зашиты: дефолты ниже — только на случай пустой конфигурации.
+// Самодостаточность: плагин работает БЕЗ внешних скриптов. Встроенный режим
+// запускает opencode напрямую (VPN — с прокси из настроек). Внешние скрипты
+// подключаются настройкой opencodeVpn.vpnDir: если каталог существует —
+// маршрут идёт через его скрипты.
+//
+// Маршруты и путь к внешним скриптам настраиваются в Settings VSCode:
+//   opencodeVpn.vpnDir     — каталог с внешними скриптами (пусто → встроенный)
+//   opencodeVpn.routes     — массив маршрутов (пусто → DEFAULT_ROUTES)
+//   opencodeVpn.proxyHost/port — прокси для встроенного режима VPN
+// Плейсхолдер {vpnDir} в launch подставляется из настроек.
 
 const vscode = require("vscode");
 const net = require("net");
 
-// Внешняя зависимость: скрипты запуска живут в проекте vpn
-// (~/.config/vpn/scripts/), рядом со своим config/vpn.yaml, cfg.py,
-// docker-compose и opencode-titled.sh. Копировать их сюда нельзя — будет
-// дублирование с дрейфом. Путь настраивается через opencodeVpn.vpnDir;
-// в коде личные пути не хранятся (портабельность для публикации).
-//
-// Самодостаточность: если opencodeVpn.vpnDir задан и существует — маршрут
-// VPN идёт через скрипты vpn-проекта (наши значения). Если vpnDir пуст или
-// недоступен — встроенный запуск opencode с прокси из opencodeVpn.proxy.*
-// (по умолчанию 127.0.0.1:2082). Так плагин работает с ЛЮБЫМ VPN.
+// Внешние скрипты запуска (не обязательны). Если opencodeVpn.vpnDir задан и
+// существует — маршрут идёт через его скрипты (scripts/opencode-console-vpn.sh
+// и scripts/opencode-console.sh). Иначе — встроенный запуск ниже.
 const DEFAULT_VPN_DIR = "";
 const DEFAULT_PROXY_HOST = "127.0.0.1";
 const DEFAULT_PROXY_PORT = "2082";
 
 // Встроенные дефолты — используются, когда opencodeVpn.routes пуст.
 // Плейсхолдеры {vpnDir}, {proxyHost}, {proxyPort} заменяются из настроек.
+// Каждый launch самодостаточен: есть внешний скрипт — используем его,
+// иначе встроенный запуск opencode.
 const DEFAULT_ROUTES = [
   {
     id: "vpn",
@@ -61,9 +57,11 @@ const DEFAULT_ROUTES = [
     terminalName: "opencode (Dock)",
     titleName: "🐳 Dock",
     port: 4100,
-    launch: "cd '{vpnDir}' && ./scripts/opencode-console.sh",
+    launch:
+      "if [ -d '{vpnDir}' ]; then cd '{vpnDir}' && ./scripts/opencode-console.sh; " +
+      "else exec opencode --port \"$OPENCODE_CONSOLE_PORT\"; fi",
   },
-  // Будущий маршрут VPS (сервер во Франции): включить настройкой
+  // Будущий маршрут VPS: включить настройкой
   // opencodeVpn.routes = [..., {id:"vps", ..., port: 4099,
   //   launch: "cd '{vpnDir}' && ./scripts/opencode-vps.sh"}]
 ];
@@ -160,8 +158,8 @@ async function openConsole(context, route, forceNew) {
   const port = await allocPort(route, forceNew);
 
   // Рабочий каталог — проект, открытый в редакторе (первая папка воркспейса),
-  // а не хардкод. Скрипты запуска используют OPENCODE_WORKDIR с фолбэком на
-  // свой config/vpn.yaml, если папка не открыта.
+  // а не хардкод. Внешние скрипты используют OPENCODE_WORKDIR с собственным
+  // фолбэком, если папка не открыта.
   const wf = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
   const workdir = wf ? wf.uri.fsPath : "";
 

@@ -30,48 +30,36 @@ released when a terminal closes. The manifest is [`package.json`](package.json).
 ## Requirements
 
 - VS Code ≥ 1.94
-- The **vpn project** (external dependency): the extension runs launch scripts
-  from a directory you point to via `opencodeVpn.vpnDir`. These scripts must
-  provide `opencode-console-vpn.sh` / `opencode-console.sh` that start opencode
-  on a given port (env `OPENCODE_CONSOLE_PORT`). See
-  [the vpn project](https://github.com/sst/opencode) layout for reference.
+- No external dependencies — the extension is self-contained (see below).
+  Optionally, external launch scripts can be plugged in via `opencodeVpn.vpnDir`.
 
-## VPN: port and exit-IP are dynamic (script-provided)
+## Self-contained (works without external scripts)
 
-The VPN route does **not** hardcode the proxy port or exit IP in the extension.
-The launch script reads them at runtime from its own config (`config/vpn.yaml`):
+The extension is **self-contained**: it starts opencode directly, without any
+external project.
 
-- **Proxy port** — default `2082` (local VPN gateway on the host).
-- **Exit-IP** — the public IP the VPN route leaves from (e.g. `203.0.113.0`),
-  read from the vpn project config and re-checked by its tools.
+- **VPN route** — opencode launches with
+  `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` (socks5h) pointing at
+  `opencodeVpn.proxyHost:opencodeVpn.proxyPort` (default `127.0.0.1:2082`).
+  Works with any proxy/VPN gateway.
+- **Dock route** — opencode launches directly on the host.
 
-Why no `port`/`ip` field in the extension settings: the proxy is owned by the
-vpn project, not by this extension. Hardcoding it here would duplicate the
-source of truth and drift when the VPN config changes. The extension only needs
-the **opencode API port** per session (route `port`, 4098/4100), which is how
-multiple windows talk to their own opencode instance. The proxy port / exit-IP
-are supplied by the script, so the same plugin works with **any VPN setup**
-(Quatro, WireGuard, commercial, corporate) — point `vpnDir` at a project whose
-scripts export `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` and start opencode on
-`OPENCODE_CONSOLE_PORT`.
+Optionally, if `opencodeVpn.vpnDir` points to a directory with launch scripts
+(`scripts/opencode-console-vpn.sh` / `scripts/opencode-console.sh`), the routes
+run those scripts instead. The scripts must start opencode on the port from env
+`OPENCODE_CONSOLE_PORT` and may export `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`.
 
-To inspect the current values from the vpn project:
+## VPN: proxy port and exit-IP are not hardcoded
 
-```bash
-cd ~/.config/vpn
-./scripts/cfg.py config/vpn.yaml opencode.proxy.port   # → 2082
-./scripts/vpn-toggle.sh status                          # → exit-IP каждого порта
-```
+The extension does **not** store the proxy port or exit IP in code. In the
+built-in mode they come from `opencodeVpn.proxyHost`/`opencodeVpn.proxyPort`;
+with external scripts (`vpnDir`) they are read from the scripts' own config at
+runtime. So the same plugin works with **any VPN setup** — point `vpnDir` at a
+project whose scripts export `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` and start
+opencode on `OPENCODE_CONSOLE_PORT`.
 
-### Self-contained: works with any VPN
-
-The VPN route is **self-contained**. If `opencodeVpn.vpnDir` is set and exists,
-it runs the vpn project scripts (your values). Otherwise it falls back to a
-**built-in launch**: opencode starts directly with
-`HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` (socks5h) pointing at
-`opencodeVpn.proxyHost:opencodeVpn.proxyPort` (default `127.0.0.1:2082`).
-So the extension works with any VPN (Quatro, WireGuard, commercial, corporate):
-point the proxy settings at your gateway — no external project needed.
+The extension only needs the **opencode API port** per session (route `port`,
+4098/4100) — that's how multiple windows talk to their own opencode instance.
 
 ## Install
 
@@ -99,7 +87,7 @@ Example (`settings.json`):
 
 ```json
 {
-  "opencodeVpn.vpnDir": "/home/user/launch-scripts",
+  "opencodeVpn.vpnDir": "/path/to/launch-scripts",
   "opencodeVpn.routes": [
     {
       "id": "vpn",
